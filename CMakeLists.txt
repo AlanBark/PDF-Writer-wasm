@@ -178,6 +178,20 @@ endif(NOT USE_BUNDLED)
 
 ADD_SUBDIRECTORY(PDFWriter)
 
+# Emscripten-specific configuration
+if(EMSCRIPTEN)
+    # Force-include emscripten fixes header for all PDF-Writer source files
+    # This provides char_traits<unsigned char> specialization needed for ByteList
+    target_compile_options(PDFWriter PRIVATE
+        -include ${CMAKE_CURRENT_SOURCE_DIR}/wasm/emscripten_fixes.h
+        -Wno-deprecated-declarations
+    )
+
+    # Add WebAssembly bindings
+    if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/wasm)
+        ADD_SUBDIRECTORY(wasm)
+    endif()
+endif()
 
 if(PROJECT_IS_TOP_LEVEL AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/PDFWriterTesting)
     # avoid installing the testing lib altogether when included in another project.

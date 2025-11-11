@@ -1,5 +1,6 @@
 #all the binaries
 BUILD
+build-wasm
 # Compiled source #
 ###################
 *.com

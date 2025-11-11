@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF-Writer WebAssembly Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section h2 {
+            color: #444;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 5px;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .status.loading {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+        }
+
+        .status.success {
+            background: #d4edda;
+            border: 1px solid #28a745;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            border: 1px solid #dc3545;
+            color: #721c24;
+        }
+
+        .file-input-wrapper {
+            margin-bottom: 20px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-label {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: 500;
+        }
+
+        .file-label:hover {
+            background: #5568d3;
+        }
+
+        button {
+            padding: 12px 24px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #218838;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .log-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 3px 0;
+        }
+
+        .log-entry.info { color: #4EC9B0; }
+        .log-entry.success { color: #6A9955; }
+        .log-entry.error { color: #F48771; }
+        .log-entry.warn { color: #DCDCAA; }
+
+        .info-box {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .info-box h3 {
+            color: #0066cc;
+            margin-bottom: 10px;
+        }
+
+        .info-box ul {
+            margin-left: 20px;
+            color: #333;
+        }
+
+        .info-box li {
+            margin-bottom: 5px;
+        }
+
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            color: #e83e8c;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PDF-Writer WebAssembly Test</h1>
+        <p class="subtitle">Test the PDF-Writer library compiled to WebAssembly</p>
+
+        <div class="section">
+            <h2>Status</h2>
+            <div id="status" class="status loading">
+                Initializing...
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>Before Testing:</h3>
+            <ul>
+                <li>Make sure you've built the WebAssembly module using <code>build-wasm.bat</code> or <code>build-wasm.sh</code></li>
+                <li>The WASM files should be in the <code>build-wasm/</code> directory</li>
+                <li>Serve this page using a local web server (not file://)</li>
+                <li>Check the browser console for detailed logs</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Actions</h2>
+
+            <button id="testInit" onclick="testInitialization()">
+                Test Initialization
+            </button>
+
+            <button id="createPDF" onclick="testCreatePDF()" disabled>
+                Create Simple PDF
+            </button>
+
+            <div class="file-input-wrapper">
+                <label for="pdfInput" class="file-label">
+                    Choose PDF File to Process
+                </label>
+                <input type="file" id="pdfInput" accept=".pdf" onchange="handleFileSelect(event)">
+                <span id="fileName" style="margin-left: 10px; color: #666;"></span>
+            </div>
+
+            <button id="processPDF" onclick="testProcessPDF()" disabled>
+                Process Selected PDF
+            </button>
+        </div>
+
+        <div class="section">
+            <h2>Console Output</h2>
+            <div id="logOutput" class="log-output">
+                <div class="log-entry info">Waiting for user action...</div>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>Notes:</h3>
+            <ul>
+                <li>This is a template page - actual PDF operations depend on the exported API</li>
+                <li>You'll need to adapt the JavaScript based on how PDF-Writer exposes its functions</li>
+                <li>Check <code>wasm-example.js</code> for the implementation patterns</li>
+                <li>Use browser DevTools to inspect the WASM module structure</li>
+            </ul>
+        </div>
+    </div>
+
+    <script type="module">
+        let wasmModule = null;
+        let selectedFile = null;
+
+        // Logging helper
+        function log(message, type = 'info') {
+            const logOutput = document.getElementById('logOutput');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logOutput.appendChild(entry);
+            logOutput.scrollTop = logOutput.scrollHeight;
+            console.log(message);
+        }
+
+        // Update status display
+        function updateStatus(message, type = 'loading') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+
+        // Test initialization
+        window.testInitialization = async function() {
+            try {
+                log('Starting WASM module initialization...', 'info');
+                updateStatus('Loading WASM module...', 'loading');
+
+                // Try to load the WASM module
+                // Adjust the path based on your build output
+                const modulePath = '../build-wasm/wasm/pdfwriter.js';
+
+                log(`Loading module from: ${modulePath}`, 'info');
+
+                // Dynamic import
+                const { default: createModule } = await import(modulePath);
+
+                log('Module script loaded, initializing...', 'info');
+                wasmModule = await createModule();
+
+                log('WASM module initialized successfully!', 'success');
+                updateStatus('WASM module loaded successfully!', 'success');
+
+                // Enable other buttons
+                document.getElementById('createPDF').disabled = false;
+                document.getElementById('processPDF').disabled = false;
+
+                // Log available module properties
+                log('Available module properties:', 'info');
+                for (let key in wasmModule) {
+                    if (typeof wasmModule[key] === 'function') {
+                        log(`  - ${key} (function)`, 'info');
+                    }
+                }
+
+            } catch (error) {
+                log(`Error loading WASM module: ${error.message}`, 'error');
+                updateStatus(`Failed to load WASM module: ${error.message}`, 'error');
+                console.error('Full error:', error);
+            }
+        };
+
+        // Test PDF creation
+        window.testCreatePDF = async function() {
+            if (!wasmModule) {
+                log('WASM module not initialized!', 'error');
+                return;
+            }
+
+            try {
+                log('Attempting to create PDF...', 'info');
+                updateStatus('Creating PDF...', 'loading');
+
+                // Test the bindings first
+                if (wasmModule.testBindings) {
+                    const testResult = wasmModule.testBindings();
+                    log(`Test bindings result: ${testResult} (expected 42)`, testResult === 42 ? 'success' : 'error');
+                }
+
+                // Get version
+                if (wasmModule.getVersion) {
+                    const version = wasmModule.getVersion();
+                    log(`PDF-Writer version: ${version}`, 'success');
+                }
+
+                // Create a simple PDF
+                if (wasmModule.createSimplePDF) {
+                    log('Creating PDF at /output.pdf...', 'info');
+                    const result = wasmModule.createSimplePDF('/output.pdf');
+
+                    if (result === 0) {
+                        log('PDF created successfully!', 'success');
+
+                        // Read the file from virtual filesystem
+                        if (wasmModule.FS) {
+                            try {
+                                const data = wasmModule.FS.readFile('/output.pdf');
+                                log(`PDF file size: ${data.length} bytes`, 'success');
+
+                                // Download the PDF
+                                const blob = new Blob([data], { type: 'application/pdf' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = 'output.pdf';
+                                a.click();
+                                URL.revokeObjectURL(url);
+
+                                log('PDF downloaded!', 'success');
+                            } catch (fsError) {
+                                log(`Could not read PDF from filesystem: ${fsError.message}`, 'error');
+                            }
+                        }
+                    } else {
+                        log(`PDF creation failed with code: ${result}`, 'error');
+                    }
+                } else {
+                    log('createSimplePDF function not found in module', 'error');
+                }
+
+                updateStatus('Ready', 'success');
+
+            } catch (error) {
+                log(`Error creating PDF: ${error.message}`, 'error');
+                updateStatus('Error creating PDF', 'error');
+                console.error(error);
+            }
+        };
+
+        // Handle file selection
+        window.handleFileSelect = function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                selectedFile = file;
+                document.getElementById('fileName').textContent = file.name;
+                log(`Selected file: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`, 'info');
+            }
+        };
+
+        // Test PDF processing
+        window.testProcessPDF = async function() {
+            if (!wasmModule) {
+                log('WASM module not initialized!', 'error');
+                return;
+            }
+
+            if (!selectedFile) {
+                log('No file selected!', 'error');
+                return;
+            }
+
+            try {
+                log(`Processing PDF: ${selectedFile.name}...`, 'info');
+                updateStatus('Processing PDF...', 'loading');
+
+                // Read file as ArrayBuffer
+                const arrayBuffer = await selectedFile.arrayBuffer();
+                const uint8Array = new Uint8Array(arrayBuffer);
+
+                log(`File loaded: ${uint8Array.length} bytes`, 'info');
+
+                // Write to virtual filesystem
+                if (wasmModule.FS) {
+                    wasmModule.FS.writeFile('/input.pdf', uint8Array);
+                    log('File written to virtual filesystem', 'success');
+                } else {
+                    log('Filesystem not available in WASM module', 'warn');
+                }
+
+                // Process PDF (example - adapt based on actual API)
+                // const result = wasmModule.ccall(...);
+
+                log('PDF processing functionality not yet implemented', 'warn');
+                log('Please adapt this based on PDF-Writer\'s exported API', 'warn');
+                updateStatus('Ready (template implementation)', 'success');
+
+            } catch (error) {
+                log(`Error processing PDF: ${error.message}`, 'error');
+                updateStatus('Error processing PDF', 'error');
+                console.error(error);
+            }
+        };
+
+        // Auto-initialize on page load
+        log('Page loaded. Click "Test Initialization" to load the WASM module.', 'info');
+        updateStatus('Ready to test. Click "Test Initialization" to begin.', 'loading');
+    </script>
+</body>
+</html>
